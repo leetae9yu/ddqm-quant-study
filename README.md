@@ -1,5 +1,14 @@
 # autoquant-lab
 
+<p align="center">
+  <a href="#english-guide"><img src="https://img.shields.io/badge/README-English-blue?style=for-the-badge" alt="English README" /></a>
+  <a href="#korean-guide"><img src="https://img.shields.io/badge/README-한국어-green?style=for-the-badge" alt="한국어 README" /></a>
+</p>
+
+<a id="english-guide"></a>
+
+## English Guide
+
 Credential-safe research scaffold for adapting the Samsung Securities DDQM2 LightGBM workflow to a U.S. S&P 500 setting.
 
 This repository currently focuses on two tracks:
@@ -194,7 +203,14 @@ Do not commit:
 
 ---
 
+<a id="korean-guide"></a>
+
 # 한국어 사용 가이드
+
+<p align="center">
+  <a href="#english-guide"><img src="https://img.shields.io/badge/README-English-blue?style=for-the-badge" alt="English README" /></a>
+  <a href="#korean-guide"><img src="https://img.shields.io/badge/README-한국어-green?style=for-the-badge" alt="한국어 README" /></a>
+</p>
 
 이 레포는 삼성증권 DDQM2 방식의 LightGBM 아이디어를 미국 S&P 500 기준으로 옮기기 위한 작업 공간입니다.
 
