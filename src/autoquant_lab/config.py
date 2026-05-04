@@ -10,9 +10,15 @@ from dotenv import load_dotenv
 
 @dataclass(frozen=True)
 class Config:
-    mode: str
-    fred_api_key: str | None
-    wrds_username: str | None
+    mode: str = "dry-run"
+    fred_api_key: str | None = None
+    wrds_username: str | None = None
+
+    @property
+    def FRED_API_KEY(self) -> str | None:  # noqa: N802 - compatibility with existing setup plan naming.
+        """Return the FRED API key from this config or the environment."""
+
+        return self.fred_api_key or os.getenv("FRED_API_KEY") or None
 
 
 def load_config(require_secrets: bool = False) -> Config:
