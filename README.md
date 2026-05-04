@@ -29,9 +29,9 @@ This repository currently focuses on two tracks:
 | Prototype modeling | `scripts/train_yfinance_macro_lgbm_baseline.py` |
 | Safety check | `scripts/scan_secrets.py` |
 
-## Current implementation and study roadmap
+## Implementation status and roadmap
 
-The study lead's target is to summarize the DDQM-style fundamental data requirements, how to collect them from WRDS, and how to organize the research database. This repo already covers the scaffold and prototype path, while the final WRDS loaders and factor database still need to be implemented.
+This section summarizes what is already implemented and what remains to build for a DDQM-style S&P 500 research pipeline. The repository currently covers the credential-safe scaffold, macro feature workflow, WRDS data requirements, and a WRDS-free prototype path; the final WRDS loaders and factor database still need to be implemented.
 
 ### Implemented so far
 
@@ -69,7 +69,7 @@ The study lead's target is to summarize the DDQM-style fundamental data requirem
 | `factor_long_short_returns` | `date`, `factor_name` | DDQM-style long-short factor return labels. |
 | `model_dataset` | `date`, `factor_name` | Final LightGBM-ready macro features and target factor returns. |
 
-Study takeaway: the technical implementation should not join by ticker. The final path should use CRSP `PERMNO`, Compustat `GVKEY`, CCM link history, IBES-CRSP link history, and explicit availability dates to keep the S&P 500 panel point-in-time safe.
+Implementation note: the final research path should not join by ticker. It should use CRSP `PERMNO`, Compustat `GVKEY`, CCM link history, IBES-CRSP link history, and explicit availability dates to keep the S&P 500 panel point-in-time safe.
 
 ## Important caveats
 
@@ -269,9 +269,9 @@ Do not commit:
 - 그래서 prototype 결과를 최종 성과나 논문용 결과처럼 해석하면 안 됩니다.
 - API 키는 `.env`에만 두고 커밋하지 않습니다.
 
-## 현재 구현 상태와 스터디 로드맵
+## 현재 구현 상태와 로드맵
 
-스터디장이 말한 목표는 DDQM 계열 모델에 필요한 펀더멘털 데이터 종류, WRDS 수집 방법, 그리고 연구용 데이터베이스 구조를 정리하는 것입니다. 이 레포는 현재 보안 설정, 매크로 피처, WRDS 요구사항 문서, yfinance 임시 파이프라인까지 준비되어 있고, WRDS 확보 후 실제 연구용 로더와 factor DB를 구현해야 합니다.
+이 섹션은 DDQM 스타일 S&P 500 연구 파이프라인에서 이미 구현된 부분과 앞으로 구현해야 할 부분을 정리합니다. 현재 레포에는 보안 설정, 매크로 피처 workflow, WRDS 데이터 요구사항, WRDS 없는 prototype 경로가 준비되어 있고, 최종 WRDS loader와 factor database는 아직 구현해야 합니다.
 
 ### 지금 구현된 부분
 
@@ -309,7 +309,7 @@ Do not commit:
 | `factor_long_short_returns` | `date`, `factor_name` | DDQM식 long-short factor return label을 저장합니다. |
 | `model_dataset` | `date`, `factor_name` | LightGBM 학습용 macro feature와 target factor return을 결합합니다. |
 
-스터디용 핵심 결론은 단순합니다. 최종 구현은 ticker join이 아니라 CRSP `PERMNO`, Compustat `GVKEY`, CCM link history, IBES-CRSP link history, 그리고 명시적인 `available_date`를 기준으로 S&P 500 패널을 point-in-time 안전하게 만들어야 합니다.
+구현상 중요한 원칙은 ticker join을 피하는 것입니다. 최종 연구 경로는 CRSP `PERMNO`, Compustat `GVKEY`, CCM link history, IBES-CRSP link history, 그리고 명시적인 `available_date`를 기준으로 S&P 500 패널을 point-in-time 안전하게 만들어야 합니다.
 
 ## 설치 방법
 
