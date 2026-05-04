@@ -249,7 +249,10 @@ def collect_market_features(start_date: str, end_date: str) -> pd.DataFrame:
     print("yfinance market features collecting...")
     try:
         yf_data = yf.download(list(YF_TICKERS.values()), start=start_date, end=end_date)
-        yf_close = yf_data["Close"] if isinstance(yf_data.columns, pd.MultiIndex) else yf_data
+        if yf_data is None or yf_data.empty:
+            return pd.DataFrame()
+        yf_close_raw = yf_data.loc[:, "Close"] if isinstance(yf_data.columns, pd.MultiIndex) else yf_data
+        yf_close = yf_close_raw.to_frame() if isinstance(yf_close_raw, pd.Series) else yf_close_raw.copy()
         yf_close = yf_close.rename(columns={value: key for key, value in YF_TICKERS.items()})
         yf_close.index = yf_close.index.tz_localize(None)
         return yf_close
