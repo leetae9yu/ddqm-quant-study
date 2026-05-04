@@ -20,6 +20,7 @@ prototypes/yfinance_sp500/experiments/
 *.xlsx
 *.xls
 *.pdf
+!reports/*.pdf
 macro code.txt
 .sisyphus/boulder.json
 .sisyphus/notepads/
