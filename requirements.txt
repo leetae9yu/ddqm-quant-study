@@ -1,0 +1,9 @@
+pandas
+numpy
+requests
+pandas-datareader
+yfinance
+python-dotenv
+wrds
+openpyxl
+pyarrow

@@ -1,0 +1,8 @@
+Command: env -u FRED_API_KEY PYTHONPATH=src python -c "from autoquant_lab.config import load_config; load_config(require_secrets=True)"
+Exit code: 1
+Output:
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "/root/projects/autoquant-lab/src/autoquant_lab/config.py", line 27, in load_config
+    raise ValueError(
+ValueError: FRED_API_KEY is required for live mode. Add it to your environment or copy .env.example to .env and fill in FRED_API_KEY.
