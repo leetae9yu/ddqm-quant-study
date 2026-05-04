@@ -24,20 +24,26 @@ REQUIRED_EXPERIMENT_FILES = (
     "feature_importance.csv",
 )
 PROTOTYPE_CAVEAT = (
-    "DDQM2-lite prototype only: these views read public yfinance/current-membership smoke artifacts. "
-    "They are not survivorship-bias-free, tradable, or research-grade performance evidence."
+    "DDQM2-lite prototype 전용 화면입니다. 이 대시보드는 public yfinance/current-membership smoke artifact만 읽습니다. "
+    "생존편향이 제거된 연구용 성과, 실제 매매 가능 성과, WRDS 기반 최종 결과로 해석하면 안 됩니다."
 )
 SMOKE_COMMANDS = (
     "PYTHONPATH=src python scripts/build_yfinance_price_panel.py --tickers AAPL MSFT SPY --start-date 2020-01-01 "
     "--end-date 2020-06-30 --output prototypes/yfinance_sp500/canonical_price_panel_smoke.parquet\n"
+    "PYTHONPATH=src python scripts/validate_yfinance_price_panel.py prototypes/yfinance_sp500/canonical_price_panel_smoke.parquet\n"
     "PYTHONPATH=src python scripts/build_yfinance_factor_scores.py --price-panel prototypes/yfinance_sp500/canonical_price_panel_smoke.parquet "
-    "--output prototypes/yfinance_sp500/factor_scores_smoke.parquet\n"
+    "--output prototypes/yfinance_sp500/factor_scores_smoke.parquet --smoke\n"
+    "PYTHONPATH=src python scripts/validate_factor_scores.py prototypes/yfinance_sp500/factor_scores_smoke.parquet --smoke\n"
     "PYTHONPATH=src python scripts/build_factor_long_short_returns.py --factor-scores prototypes/yfinance_sp500/factor_scores_smoke.parquet "
     "--price-panel prototypes/yfinance_sp500/canonical_price_panel_smoke.parquet --output prototypes/yfinance_sp500/factor_long_short_returns_smoke.parquet --smoke\n"
+    "PYTHONPATH=src python scripts/validate_factor_long_short_returns.py prototypes/yfinance_sp500/factor_long_short_returns_smoke.parquet --smoke\n"
     "PYTHONPATH=src python scripts/assemble_macro_factor_dataset.py --factor-returns prototypes/yfinance_sp500/factor_long_short_returns_smoke.parquet "
     "--macro-workbook expanded_macro_market_features.xlsx --output prototypes/yfinance_sp500/macro_factor_model_ready_smoke.parquet\n"
+    "PYTHONPATH=src python scripts/validate_macro_factor_dataset.py prototypes/yfinance_sp500/macro_factor_model_ready_smoke.parquet\n"
     "PYTHONPATH=src python scripts/train_macro_factor_lgbm_baseline.py --input prototypes/yfinance_sp500/macro_factor_model_ready_smoke.parquet "
-    "--output-dir prototypes/yfinance_sp500/experiments/smoke_lgbm --smoke"
+    "--output-dir prototypes/yfinance_sp500/experiments/smoke_lgbm --smoke\n"
+    "PYTHONPATH=src python scripts/validate_macro_factor_experiment.py prototypes/yfinance_sp500/experiments/smoke_lgbm\n"
+    "PYTHONPATH=src streamlit run apps/ddqm2_lite_dashboard.py"
 )
 
 
@@ -83,10 +89,10 @@ def relative_label(path: Path) -> str:
 def show_missing_artifacts(experiment_dir: Path, factor_returns_path: Path, model_dataset_path: Path) -> None:
     expected = [experiment_dir / filename for filename in REQUIRED_EXPERIMENT_FILES]
     expected.extend([factor_returns_path, model_dataset_path])
-    st.error("Some DDQM2-lite artifacts are missing or unreadable. The dashboard is read-only and will not generate them for you.")
-    st.markdown("**Expected files**")
+    st.error("필요한 DDQM2-lite artifact가 없거나 읽을 수 없습니다. 이 dashboard는 read-only라서 파일을 대신 생성하지 않습니다.")
+    st.markdown("**필요한 파일**")
     st.code("\n".join(relative_label(path) for path in expected), language="text")
-    st.markdown("**Smoke commands to generate artifacts outside the dashboard**")
+    st.markdown("**dashboard 밖에서 artifact를 생성하는 smoke command**")
     st.code(SMOKE_COMMANDS, language="bash")
 
 
@@ -244,21 +250,179 @@ def apply_theme() -> None:
     )
 
 
+def render_usage_guide() -> None:
+    st.markdown(
+        """
+        ### 보는 순서
+
+        이 화면은 **DDQM2-lite smoke 실험 결과를 읽기 위한 안내판**입니다. 새 실험을 돌리거나 데이터를 다운로드하지 않고,
+        이미 만들어진 artifact만 읽어서 요약합니다.
+
+        1. **실험 요약**에서 run id, 학습/검증 기간, factor 수, feature 수를 먼저 확인합니다.
+        2. **LightGBM vs naive baseline**에서 모델이 단순 기준선보다 나은지 대략 봅니다. smoke test라 성과 결론은 내리지 않습니다.
+        3. **Factor별 검증 진단**에서 어떤 factor에서 오차가 큰지 확인합니다.
+        4. **Long-short factor return**에서 factor label 자체가 어떻게 움직였는지 봅니다.
+        5. **Prediction 진단**에서 예측값과 실제 factor return의 관계, residual 분포를 확인합니다.
+        6. **Feature importance**에서 어떤 macro feature가 LightGBM split/gain에 많이 쓰였는지 봅니다.
+        7. **데이터 커버리지**에서 결측, basket count, artifact row 수를 확인해 실험 신뢰도를 점검합니다.
+
+        #### 해석할 때 주의할 점
+
+        - 지금 결과는 **pipeline 연결 확인용 smoke 결과**입니다.
+        - yfinance/current-membership 기반이라 S&P 500 생존편향을 제거하지 못합니다.
+        - WRDS/CRSP/Compustat/IBES 기반 연구용 pipeline이 완성되기 전까지는 성과 수치보다 **흐름과 artifact 품질**을 보는 것이 목적입니다.
+        - dashboard는 read-only입니다. 경로를 바꿔 다른 artifact를 읽을 수는 있지만, 파일을 생성하거나 수정하지 않습니다.
+        """
+    )
+
+
+def render_pipeline_map() -> None:
+    st.markdown(
+        """
+        ### 파이프라인 지도
+
+        ```text
+        yfinance canonical price panel
+        → price/volume factor score
+        → factor long-short return label
+        → FRED/ALFRED macro-factor dataset
+        → LightGBM baseline experiment artifact
+        → 이 read-only dashboard
+        ```
+        """
+    )
+
+
+def first_metric_value(metrics_frame: pd.DataFrame, model_name: str, metric_name: str) -> float | None:
+    if metrics_frame.empty or metric_name not in metrics_frame.columns:
+        return None
+    matching = metrics_frame.loc[
+        metrics_frame["split"].astype(str).eq("validation") & metrics_frame["model"].astype(str).str.contains(model_name, case=False, na=False),
+        metric_name,
+    ].dropna()
+    if matching.empty:
+        return None
+    return float(matching.iloc[0])
+
+
+def format_optional_float(value: float | None, digits: int = 4) -> str:
+    if value is None or not np.isfinite(value):
+        return "확인 불가"
+    return f"{value:.{digits}f}"
+
+
+def render_plain_language_explanation(
+    manifest: dict[str, Any],
+    metrics: dict[str, Any],
+    predictions: pd.DataFrame,
+    importance: pd.DataFrame,
+    factor_returns: pd.DataFrame | None,
+    model_dataset: pd.DataFrame | None,
+) -> None:
+    st.markdown("### 한 줄 요약")
+    st.info(
+        "이 화면은 '매크로 환경을 보고 어떤 factor long-short return이 좋아질지 LightGBM으로 맞춰보는' "
+        "DDQM2-lite smoke 실험 결과를 쉽게 읽기 위한 화면입니다. 숫자는 성과 결론이 아니라 파이프라인 연결 확인용입니다.",
+        icon="💡",
+    )
+
+    row_counts = manifest.get("row_counts", {}) if isinstance(manifest.get("row_counts"), dict) else {}
+    feature_count = len(manifest.get("feature_columns", [])) if isinstance(manifest.get("feature_columns"), list) else None
+    plain_cols = st.columns(4)
+    plain_cols[0].metric("무엇을 예측?", "Factor 수익률")
+    plain_cols[1].metric("검증 샘플", str(row_counts.get("validation", "n/a")))
+    plain_cols[2].metric("Factor 개수", str(manifest.get("factor_count", "n/a")))
+    plain_cols[3].metric("Macro feature", str(feature_count if feature_count is not None else "n/a"))
+
+    metrics_frame = metrics_to_frame(metrics)
+    lightgbm_rmse = first_metric_value(metrics_frame, "lightgbm", "rmse")
+    zero_rmse = first_metric_value(metrics_frame, "zero", "rmse")
+    mean_rmse = first_metric_value(metrics_frame, "mean", "rmse")
+    rmse_text = format_optional_float(lightgbm_rmse)
+    baseline_text = ", ".join(
+        item for item in (f"zero={format_optional_float(zero_rmse)}" if zero_rmse is not None else "", f"mean={format_optional_float(mean_rmse)}" if mean_rmse is not None else "") if item
+    )
+    st.markdown(
+        f"""
+        ### 결과를 아주 쉽게 읽으면
+
+        - **모델이 하려는 일**: 매월 macro feature를 보고 factor별 long-short return을 예측합니다.
+        - **LightGBM 검증 RMSE**: `{rmse_text}`입니다. RMSE는 낮을수록 좋습니다.
+        - **단순 baseline**: {baseline_text or "artifact에서 확인 불가"}. LightGBM이 이 값보다 낮아야 최소한 의미 있는 비교가 됩니다.
+        - **중요한 caveat**: 지금은 yfinance 기반 smoke라서 실제 투자 성과가 아니라, 데이터 → factor → label → model → dashboard 연결 확인입니다.
+        """
+    )
+
+    if factor_returns is not None and not factor_returns.empty and "long_short_return" in factor_returns.columns:
+        target = pd.to_numeric(factor_returns["long_short_return"], errors="coerce").dropna()
+        if not target.empty:
+            st.markdown(
+                f"- **맞히려는 target의 평균**은 `{target.mean():.4f}`, 변동성은 `{target.std():.4f}`입니다. "
+                "target 자체가 작고 출렁이면 모델 성능도 불안정하게 보일 수 있습니다."
+            )
+
+    if not importance.empty and {"feature", "importance", "importance_type"}.issubset(importance.columns):
+        gain_importance = importance.loc[importance["importance_type"].astype(str).eq("gain"), ["feature", "importance"]].copy()
+        if not gain_importance.empty:
+            gain_importance["importance"] = pd.to_numeric(gain_importance["importance"], errors="coerce")
+            top_features = gain_importance.sort_values("importance", ascending=False).head(5)["feature"].astype(str).tolist()
+            st.markdown("- **모델이 많이 본 macro feature Top 5**: " + ", ".join(top_features))
+
+    if model_dataset is not None and not model_dataset.empty:
+        total_missing = int(model_dataset.isna().sum().sum())
+        st.markdown(f"- **model dataset 결측치 총합**: `{total_missing}`개입니다. 결측이 많으면 먼저 데이터 품질을 의심해야 합니다.")
+
+    with st.expander("용어를 더 쉽게 풀어보기", expanded=False):
+        st.markdown(
+            """
+            - **Factor**: momentum, volatility, liquidity 같은 주식 특성 점수입니다.
+            - **Long-short return**: factor 점수가 높은 종목 묶음을 사고 낮은 종목 묶음을 판 것처럼 계산한 수익률입니다.
+            - **Macro feature**: 금리, 신용스프레드, 지수 가격처럼 시장 상태를 설명하는 변수입니다.
+            - **RMSE/MAE**: 예측 오차입니다. 낮을수록 좋습니다.
+            - **Feature importance**: LightGBM이 어떤 macro feature를 자주/강하게 사용했는지 보여주는 힌트입니다. 인과관계 증명은 아닙니다.
+            """
+        )
+
+
+def render_detail_tab_guide() -> None:
+    st.markdown(
+        """
+        ### 아래 상세 지표를 보는 방법
+
+        이 탭은 아래에 이어지는 1~7번 상세 섹션의 해설판입니다.
+
+        - **1번 실험 요약**: 이 실험 artifact가 어떤 기간/샘플/feature로 만들어졌는지 확인합니다.
+        - **2번 성능 비교**: LightGBM이 zero/mean baseline보다 나은지 봅니다. 낮은 RMSE가 더 좋습니다.
+        - **3번 factor별 진단**: 어떤 factor에서 모델이 특히 못 맞히는지 찾습니다.
+        - **4번 long-short return**: 모델 target 자체가 안정적인지 봅니다.
+        - **5번 prediction 진단**: 예측값과 실제값이 같은 방향으로 움직이는지 봅니다.
+        - **6번 feature importance**: 모델이 어떤 macro feature에 반응했는지 힌트를 봅니다.
+        - **7번 coverage**: 결측과 basket 수를 확인해 결과를 믿을 수 있는지 점검합니다.
+
+        어렵게 느껴지면 **2번 RMSE → 4번 target 흐름 → 7번 데이터 품질**만 먼저 보면 됩니다.
+        """
+    )
+
+
 def render_dashboard() -> None:
-    st.set_page_config(page_title="DDQM2-lite artifact dashboard", page_icon="📊", layout="wide")
+    st.set_page_config(page_title="DDQM2-lite 결과 대시보드", page_icon="📊", layout="wide")
     apply_theme()
-    st.title("DDQM2-lite Artifact Dashboard")
-    st.caption("Read-only Streamlit view over persisted smoke artifacts. No downloads, rebuilds, retraining, or artifact mutation.")
+    st.title("DDQM2-lite 결과 대시보드")
+    st.caption("저장된 smoke artifact를 읽어서 보여주는 read-only Streamlit 화면입니다. 다운로드, 재생성, 재학습, 파일 수정은 하지 않습니다.")
     st.warning(PROTOTYPE_CAVEAT, icon="⚠️")
+    render_pipeline_map()
+    with st.expander("처음 보는 사람을 위한 읽는 법", expanded=True):
+        render_usage_guide()
 
     with st.sidebar:
-        st.header("Artifact paths")
-        experiment_dir = as_path(st.text_input("Experiment directory", value=relative_label(DEFAULT_EXPERIMENT_DIR)))
-        factor_returns_path = as_path(st.text_input("Factor returns path", value=relative_label(DEFAULT_FACTOR_RETURNS)))
-        model_dataset_path = as_path(st.text_input("Model dataset path", value=relative_label(DEFAULT_MODEL_DATASET)))
-        top_n = int(st.slider("Top-N feature importance", min_value=5, max_value=50, value=20, step=5))
+        st.header("Artifact 경로")
+        st.caption("기본값은 방금 돌린 smoke experiment 결과입니다. 다른 실험을 보면 여기 경로만 바꾸면 됩니다.")
+        experiment_dir = as_path(st.text_input("실험 디렉터리", value=relative_label(DEFAULT_EXPERIMENT_DIR)))
+        factor_returns_path = as_path(st.text_input("Factor return artifact", value=relative_label(DEFAULT_FACTOR_RETURNS)))
+        model_dataset_path = as_path(st.text_input("Model dataset artifact", value=relative_label(DEFAULT_MODEL_DATASET)))
+        top_n = int(st.slider("Feature importance Top-N", min_value=5, max_value=50, value=20, step=5))
         st.divider()
-        st.caption("The dashboard only reads these paths with pandas/json/pathlib.")
+        st.caption("이 dashboard는 pandas/json/pathlib로 위 경로를 읽기만 합니다.")
 
     missing_files = [experiment_dir / filename for filename in REQUIRED_EXPERIMENT_FILES if not (experiment_dir / filename).exists()]
     metrics, metrics_error = read_json(experiment_dir / "metrics.json")
@@ -272,7 +436,7 @@ def render_dashboard() -> None:
     if missing_files or errors:
         show_missing_artifacts(experiment_dir, factor_returns_path, model_dataset_path)
         if errors:
-            st.markdown("**Read status**")
+            st.markdown("**읽기 상태**")
             st.code("\n".join(errors), language="text")
         return
 
@@ -281,22 +445,29 @@ def render_dashboard() -> None:
     assert predictions is not None
     assert importance is not None
 
-    st.subheader("Overview and run summary")
+    easy_tab, detail_guide_tab = st.tabs(["쉽게 풀어쓴 설명", "상세 지표 보는 법"])
+    with easy_tab:
+        render_plain_language_explanation(manifest, metrics, predictions, importance, factor_returns, model_dataset)
+    with detail_guide_tab:
+        render_detail_tab_guide()
+
+    st.subheader("1. 실험 요약")
     warning_text = str(manifest.get("prototype_warning") or PROTOTYPE_CAVEAT)
     st.info(warning_text, icon="🧪")
     run_summary = summarize_manifest(manifest)
     counts = manifest.get("row_counts", {}) if isinstance(manifest.get("row_counts"), dict) else {}
     metric_cols = st.columns(4)
-    metric_cols[0].metric("Run", str(manifest.get("run_id", "n/a")))
-    metric_cols[1].metric("Factors", str(manifest.get("factor_count", "n/a")))
-    metric_cols[2].metric("Validation rows", str(counts.get("validation", "n/a")))
-    metric_cols[3].metric("Features", str(len(manifest.get("feature_columns", [])) if isinstance(manifest.get("feature_columns"), list) else "n/a"))
+    metric_cols[0].metric("Run ID", str(manifest.get("run_id", "n/a")))
+    metric_cols[1].metric("Factor 수", str(manifest.get("factor_count", "n/a")))
+    metric_cols[2].metric("검증 rows", str(counts.get("validation", "n/a")))
+    metric_cols[3].metric("Macro feature 수", str(len(manifest.get("feature_columns", [])) if isinstance(manifest.get("feature_columns"), list) else "n/a"))
     st.dataframe(run_summary, width="stretch", hide_index=True)
 
-    st.subheader("LightGBM vs naive baseline performance")
+    st.subheader("2. LightGBM vs 단순 baseline 성능")
+    st.caption("검증 구간에서 LightGBM과 zero_return/train_mean_return 같은 단순 기준선을 비교합니다. smoke 결과라 방향성 확인용입니다.")
     metrics_frame = metrics_to_frame(metrics)
     if metrics_frame.empty:
-        st.warning("metrics.json did not contain train/validation metric objects.")
+        st.warning("metrics.json 안에 train/validation metric 객체가 없습니다.")
     else:
         validation_metrics = metrics_frame.loc[metrics_frame["split"].eq("validation"), :].copy()
         st.dataframe(validation_metrics, width="stretch", hide_index=True)
@@ -306,16 +477,18 @@ def render_dashboard() -> None:
             if not chart_data.empty:
                 st.bar_chart(chart_data, height=240)
 
-    st.subheader("Factor-level validation diagnostics")
+    st.subheader("3. Factor별 검증 진단")
+    st.caption("각 factor target에서 예측 오차가 어느 정도인지 봅니다. 특정 factor만 유독 나쁘면 label 또는 feature 구성을 점검해야 합니다.")
     factor_breakdown = factor_metric_breakdown(predictions)
     if factor_breakdown.empty:
-        st.warning("Could not compute factor-level metrics from predictions.parquet.")
+        st.warning("predictions.parquet에서 factor별 metric을 계산할 수 없습니다.")
     else:
         st.dataframe(factor_breakdown, width="stretch", hide_index=True)
         if "rmse" in factor_breakdown.columns:
             st.bar_chart(factor_breakdown.set_index("factor_name")[["rmse"]], height=280)
 
-    st.subheader("Long-short factor returns")
+    st.subheader("4. Long-short factor return label")
+    st.caption("모델이 맞히려는 target입니다. 위쪽 chart는 월별 factor return, 아래 chart는 단순 누적 흐름입니다.")
     if factor_returns is not None and not factor_returns.empty and {"formation_date", "factor_name", "long_short_return"}.issubset(factor_returns.columns):
         returns = factor_returns.copy()
         returns["formation_date"] = pd.to_datetime(returns["formation_date"], errors="coerce")
@@ -324,9 +497,10 @@ def render_dashboard() -> None:
         cumulative = (1.0 + pivot.fillna(0.0)).cumprod() - 1.0
         st.line_chart(cumulative, height=280)
     else:
-        st.warning("Factor returns artifact is empty or missing formation_date/factor_name/long_short_return columns.")
+        st.warning("Factor return artifact가 비어 있거나 formation_date/factor_name/long_short_return 컬럼이 없습니다.")
 
-    st.subheader("Prediction diagnostics")
+    st.subheader("5. Prediction 진단")
+    st.caption("예측값과 실제 long-short return의 관계를 봅니다. 점들이 대각선에 가까울수록 예측 방향이 맞는 편입니다.")
     valid_predictions = validation_predictions(predictions)
     if {"target_long_short_return", "prediction"}.issubset(valid_predictions.columns):
         scatter = valid_predictions.loc[:, ["target_long_short_return", "prediction", "factor_name"]].copy()
@@ -340,23 +514,25 @@ def render_dashboard() -> None:
             histogram = pd.DataFrame({"residual_bin": [f"{edges[i]:.4f} to {edges[i + 1]:.4f}" for i in range(len(counts_hist))], "rows": counts_hist})
             st.bar_chart(histogram.set_index("residual_bin"), height=260)
     else:
-        st.warning("Predictions artifact is missing target/prediction columns.")
+        st.warning("Predictions artifact에 target/prediction 컬럼이 없습니다.")
 
-    st.subheader("Feature importance")
+    st.subheader("6. Macro feature importance")
+    st.caption("LightGBM이 어떤 macro feature를 split/gain 기준으로 많이 사용했는지 봅니다. 인과 해석이 아니라 모델 사용 빈도/기여도 힌트입니다.")
     if not importance.empty and {"feature", "importance", "importance_type"}.issubset(importance.columns):
-        importance_type = st.radio("Importance type", sorted(importance["importance_type"].astype(str).unique()), horizontal=True)
+        importance_type = st.radio("Importance 기준", sorted(importance["importance_type"].astype(str).unique()), horizontal=True)
         top_importance = importance.loc[importance["importance_type"].astype(str).eq(importance_type), ["feature", "importance"]].copy()
         top_importance["importance"] = pd.to_numeric(top_importance["importance"], errors="coerce")
         top_importance = top_importance.sort_values("importance", ascending=False).head(top_n)
         st.bar_chart(top_importance.set_index("feature"), height=420)
         st.dataframe(top_importance, width="stretch", hide_index=True)
     else:
-        st.warning("Feature importance artifact is empty or missing required columns.")
+        st.warning("Feature importance artifact가 비어 있거나 필요한 컬럼이 없습니다.")
 
-    st.subheader("Data coverage, missingness, and basket counts")
+    st.subheader("7. 데이터 커버리지, 결측, basket count")
+    st.caption("artifact row 수, 결측, long/short basket 크기를 확인합니다. smoke 실험에서는 basket 수가 작아서 성과보다 구조 검증에 초점을 둡니다.")
     coverage = coverage_table(model_dataset, factor_returns)
     if coverage.empty:
-        st.warning("No model dataset or factor return coverage could be displayed.")
+        st.warning("Model dataset 또는 factor return coverage를 표시할 수 없습니다.")
     else:
         st.dataframe(coverage, width="stretch", hide_index=True)
     missingness = pd.concat(
