@@ -18,3 +18,13 @@ PYTHONPATH=src python scripts/validate_yfinance_sp500_labels.py
 ```
 
 Outputs are written under `prototypes/yfinance_sp500/` and ignored by git. This current-membership public-data fallback is marked `prototype_only=True` and must not be treated as survivorship-bias-free research data.
+
+## Macro feature diagnostics
+
+Run deeper DDQM2 macro input quality checks with:
+
+```bash
+python scripts/diagnose_macro_feature_quality.py --top-n 5
+```
+
+The command defaults to `expanded_macro_market_features.xlsx` and prints diagnostics to stdout only; it does not create report files.
