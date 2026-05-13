@@ -10,6 +10,17 @@
 - 실험 결과는 `experiments/`, `reports/`, `site/` 아래 생성되며 기본적으로 git에서 제외됩니다.
 - LSTM/Transformer 같은 GPU 필요 모델은 v1 범위에서 제외합니다.
 
+## 연구 배경
+
+`autoquant-lab`는 삼성증권의 Data-driven Quant Model(DDQM) 아이디어를 미국 주식 데이터 기반의 오프라인 리서치 플랫폼으로 옮겨보는 프로젝트입니다. 로컬 기획 문서인 `EQR.md`는 이 아이디어를 EQR(Equity Quant Research) 관점으로 재정리한 문서입니다. 목표는 WRDS 스타일의 CRSP/Compustat/IBES 데이터와 FRED 스타일 매크로 데이터를 이용해 시점 기준 월별 `(날짜 x 종목)` 패널을 만들고, 반복 가능한 CPU 기반 실험으로 종목 또는 팩터 성과를 예측하는 것입니다.
+
+작업 디렉토리에 있는 삼성증권 DDQM PDF들은 다음 연구 흐름을 설명합니다.
+
+- `Data-Driven Quant Model.pdf`: DDQM 원형입니다. 거시/시장 변수로 feature를 만들고, 과거 팩터 수익률로 스타일 국면을 라벨링한 뒤, Random Forest 같은 분류 모델로 현재 국면을 예측하고, 예측된 국면에 맞춰 팩터 포트폴리오를 회전시키는 방식입니다.
+- `Data-Driven Quant Model2.pdf`: DDQM2입니다. discrete regime classification을 줄이고, LightGBM 계열 회귀 모델로 각 알파 팩터의 다음 1개월 long-short 수익률을 직접 예측한 뒤, 예측 수익률에 따라 동적으로 팩터 비중을 배분하는 방식입니다.
+
+이 레포는 삼성증권의 한국 시장 실전 모델을 그대로 복제하는 것이 아닙니다. DDQM/DDQM2의 연구 패턴을 참고하되, 미국 로컬 데이터, 명시적인 point-in-time 조인, SQLite 실험 ledger, config-only 에이전트 자동화, 정적 실험 히스토리 사이트를 갖춘 재현 가능한 리서치 하네스로 다시 설계합니다. PDF와 `EQR.md`는 로컬 연구 참고자료이며, 코드 스캐폴드를 실행하기 위해 커밋될 필요는 없습니다.
+
 ## 활성 레이아웃
 
 | 영역 | 경로 | 역할 |

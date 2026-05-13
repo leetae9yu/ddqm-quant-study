@@ -8,6 +8,29 @@ This repository is being reset around an EQR-first layout. Active package code l
 `src/autoquant_lab/eqr/`, active wrappers are prefixed with `scripts/eqr_`, and runtime outputs
 are isolated from source-controlled configuration and harness code.
 
+## Research background
+
+`autoquant-lab` is a research harness for adapting the Samsung Securities Data-driven Quant Model
+idea to an offline U.S. equity research setting. The local planning note `EQR.md` translates the
+DDQM/DDQM2 concept into an EQR (Equity Quant Research) build target: construct a point-in-time
+monthly `(date x security)` panel from WRDS-style CRSP/Compustat/IBES data plus FRED-style macro
+features, then run repeatable CPU-friendly experiments that forecast stock or factor performance.
+
+The reference PDFs in the working copy are Samsung Securities DDQM materials:
+
+- `Data-Driven Quant Model.pdf`: describes the original DDQM approach. It engineers macro/market
+  features, labels style regimes from factor returns, trains a classifier such as Random Forest to
+  identify regimes, and rotates factor portfolios by predicted regime.
+- `Data-Driven Quant Model2.pdf`: describes DDQM2. It drops discrete regime classification and uses
+  LightGBM-style regressors to predict each alpha factor's next 1-month long-short return directly
+  from macro/market features, then allocates factor weights from the predicted returns.
+
+This repository does **not** copy Samsung's Korean-market production setup directly. It uses the same
+research pattern as inspiration, while rebuilding the pipeline around local U.S. data, explicit
+point-in-time joins, a SQLite experiment ledger, config-only agent autonomy, and static experiment
+history. The PDFs and `EQR.md` are local research references and are not required to be committed for
+the code scaffold to run.
+
 ## Active layout
 
 | Area | Path | Purpose |
