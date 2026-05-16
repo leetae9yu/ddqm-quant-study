@@ -290,9 +290,26 @@ def _build_factor_artifacts(
         factor_returns = pd.concat(factor_return_frames, ignore_index=True).sort_values([PERIOD_COLUMN, "factor_id"]).reset_index(drop=True)
     else:
         factor_returns = pd.DataFrame()
-    score_frames = [pd.read_parquet(path) for path in sorted(score_dir.glob("part-*.parquet"))]
-    factor_scores = pd.concat(score_frames, ignore_index=True) if score_frames else pd.DataFrame()
-    return metadata, factor_returns, factor_score_rows, ["factor_scores/"], factor_scores
+    return metadata, factor_returns, factor_score_rows, ["factor_scores/"], pd.DataFrame()
+
+
+def _load_selected_factor_scores(run_dir: Path, factor_score_artifacts: list[str], selected_factor_ids: set[str]) -> pd.DataFrame:
+    if "factor_scores/" in factor_score_artifacts:
+        score_paths = sorted((run_dir / "factor_scores").glob("part-*.parquet"))
+    else:
+        score_path = run_dir / "factor_scores.parquet"
+        score_paths = [score_path] if score_path.exists() else []
+    frames: list[pd.DataFrame] = []
+    for path in score_paths:
+        frame = pd.read_parquet(path)
+        if "factor_id" not in frame.columns:
+            continue
+        selected = frame.loc[frame["factor_id"].isin(selected_factor_ids)].copy()
+        if not selected.empty:
+            frames.append(selected)
+    if not frames:
+        return pd.DataFrame()
+    return pd.concat(frames, ignore_index=True)
 
 
 def _format_metric(value: Any) -> str:
@@ -390,7 +407,10 @@ def main() -> int:
         raise ValueError(f"Factor universe produced no runnable factors: {factor_universe}")
     metadata = selected_metadata if not selected_metadata.empty else metadata.loc[metadata["factor_id"].isin(selected_factor_ids)].copy()
     factor_returns = factor_returns.loc[factor_returns["factor_id"].isin(selected_factor_ids)].copy()
-    factor_scores = factor_scores.loc[factor_scores["factor_id"].isin(selected_factor_ids)].copy()
+    if portfolio_surface == "stock_score_qspread_ddqm2":
+        factor_scores = _load_selected_factor_scores(run_dir, factor_score_artifacts, selected_factor_ids)
+    elif not factor_scores.empty:
+        factor_scores = factor_scores.loc[factor_scores["factor_id"].isin(selected_factor_ids)].copy()
     result = train_factor_return_models(
         factor_returns,
         features,
