@@ -1,248 +1,143 @@
 # autoquant-lab
 
-[한국어 README](README_ko.md)
+`autoquant-lab` is an offline research harness for adapting the DDQM2 idea to a U.S. equity setting. It builds point-in-time monthly equity panels from local research data, forecasts factor long-short returns from macro/market features, converts predictions into dynamic factor allocations, and evaluates walk-forward out-of-sample portfolios.
 
-Canonical scaffold for the EQR autoresearch platform.
+This repository is published as a **code and documentation scaffold only**. Raw WRDS-style datasets, credentials, local research notes, generated experiment artifacts, and vendor/reference PDFs are intentionally excluded.
 
-This repository is being reset around an EQR-first layout. Active package code lives under
-`src/autoquant_lab/eqr/`, active wrappers are prefixed with `scripts/eqr_`, and runtime outputs
-are isolated from source-controlled configuration and harness code.
+## What this project does
 
-## Research background
+The current harness supports a USA-version DDQM2 research loop:
 
-`autoquant-lab` is a research harness for adapting the Samsung Securities Data-driven Quant Model
-idea to an offline U.S. equity research setting. The local planning note `EQR.md` translates the
-DDQM/DDQM2 concept into an EQR (Equity Quant Research) build target: construct a point-in-time
-monthly `(date x security)` panel from WRDS-style CRSP/Compustat/IBES data plus FRED-style macro
-features, then run repeatable CPU-friendly experiments that forecast stock or factor performance.
+1. Prepare a monthly `(date, security)` panel from local offline artifacts, without storing public/vendor source data in git.
+2. Build feature families with point-in-time lag controls.
+3. Compute stock-level factor scores from an EQR factor registry.
+4. Convert factor scores into next-month factor long-short returns.
+5. Train one CPU-friendly model per factor to forecast factor returns.
+6. Convert predicted factor returns into non-negative factor weights.
+7. Evaluate both:
+   - weighted factor-return portfolios, and
+   - DDQM2-style stock-level weighted factor score QSpread portfolios.
+8. Record manifests, metrics, reports, and reproducible run metadata locally.
 
-The reference PDFs in the working copy are Samsung Securities DDQM materials:
+The project is inspired by Samsung Securities DDQM/DDQM2, but it is not a direct reproduction of their Korean-market production setup. It is a U.S. market adaptation with explicit differences in universe, data sources, macro features, factor definitions, and evaluation protocol.
 
-- `Data-Driven Quant Model.pdf`: describes the original DDQM approach. It engineers macro/market
-  features, labels style regimes from factor returns, trains a classifier such as Random Forest to
-  identify regimes, and rotates factor portfolios by predicted regime.
-- `Data-Driven Quant Model2.pdf`: describes DDQM2. It drops discrete regime classification and uses
-  LightGBM-style regressors to predict each alpha factor's next 1-month long-short return directly
-  from macro/market features, then allocates factor weights from the predicted returns.
+## Current research track
 
-This repository does **not** copy Samsung's Korean-market production setup directly. It uses the same
-research pattern as inspiration, while rebuilding the pipeline around local U.S. data, explicit
-point-in-time joins, a SQLite experiment ledger, config-only agent autonomy, and static experiment
-history. The PDFs and `EQR.md` are local research references and are not required to be committed for
-the code scaffold to run.
+The latest implementation promotes the previously planned USA-DDQM2 axes into executable runs:
 
-## EQR.md study objective
+- `selected_13_global_local`: DDQM2-inspired 13-factor selection from the available factor registry.
+- `ddqm2_25x3_us_macro`: U.S. adaptation of the DDQM2 macro design with current, short-direction, and medium-direction style features where available.
+- `expanded_us_macro`: an open macro expansion axis for additional U.S. market/macro variables supported by local artifacts.
+- `stock_score_qspread_ddqm2`: stock-level weighted factor score QSpread portfolio surface.
 
-The current implementation is designed to support the local `EQR.md` study goal: run all feasible
-EQR factor and methodology experiments on a server for many hours, excluding GPU-only methods such as
-LSTM and Transformer models, and produce a DDQM2-style final research trail.
+Quantile `q` is intentionally left as a research axis:
 
-The supported path is:
+- q=0.10 is the DDQM2-reference decile construction.
+- q=0.20 and q=0.30 are U.S. adaptation settings for wider, more diversified legs.
 
-1. Read local prepared WRDS/FRED/yfinance-derived artifacts only.
-2. Build point-in-time monthly stock panels and feature families.
-3. Convert the EQR factor taxonomy into stock-level factor scores.
-4. Convert factor scores into next-1-month long-short factor returns.
-5. Train one CPU-friendly model per factor from macro/market features.
-6. Convert predicted factor returns into dynamic factor weights.
-7. Backtest the realized factor portfolio and write reports/artifacts.
+See the final matrix report:
 
-This means the repository can now produce the core DDQM2-shaped output for the study: factor return
-labels, factor-return predictions, factor allocation weights, portfolio returns, a manifest, and a
-markdown report. Some EQR factors are implemented through documented proxies because the currently
-available local data does not expose the exact original source column; source-absent factors are
-marked unavailable rather than silently faked.
+- [`reports/usa_ddqm2_matrix_report.md`](reports/usa_ddqm2_matrix_report.md)
 
-## Active layout
-
-| Area | Path | Purpose |
-|---|---|---|
-| EQR package | `src/autoquant_lab/eqr/` | Canonical schemas, validation helpers, and future research modules. |
-| Configs | `configs/` | Source-controlled experiment and harness configuration. |
-| Experiments | `experiments/` | Local experiment runtime outputs; ignored except `.gitkeep`. |
-| Reports | `reports/` | Generated research reports; ignored except `.gitkeep`. |
-| Static site | `site/` | Generated static presentation output; ignored except `.gitkeep`. |
-| Skill | `skills/eqr-autoresearch/` | EQR autoresearch skill assets and instructions. |
-| Tests | `tests/` | Automated checks for the EQR platform. |
-| Scripts | `scripts/eqr_*.py` | Thin command wrappers for the canonical EQR path. |
-
-## Golden-path quickstart
-
-Run the full offline EQR autoresearch smoke from raw data checks through site rendering and CI:
-
-```bash
-python scripts/eqr_autoresearch.py golden-path \
-  --config configs/golden_path.yaml \
-  --max-trials 3
-```
-
-The command executes the canonical demo path:
-
-1. Validate local raw data contracts with `scripts/eqr_validate_raw_data.py`.
-2. Build point-in-time CRSP/Compustat/IBES link artifacts with `scripts/eqr_build_links.py`.
-3. Prepare monthly labels and feature families with `scripts/eqr_prepare_panel.py`.
-4. Validate `configs/golden_path.yaml`.
-5. Queue and execute three fresh ledger-backed model/config trials.
-6. Persist metrics, predictions, models, artifacts, and ledger state under `experiments/`.
-7. Render reports and the static site with `scripts/eqr_render_site.py`.
-8. Run `python scripts/eqr_ci.py --smoke`.
-
-By default the golden path uses `--max-rows 50000` for smoke-sized prepared panel, feature, and trial artifacts. Pass `--max-rows 0` only on machines sized for the full offline panel.
-
-After a successful run, verify the demo artifacts:
-
-```bash
-python - <<'PY'
-import sqlite3
-from pathlib import Path
-
-ledger = Path("experiments/ledger.sqlite")
-with sqlite3.connect(ledger) as conn:
-    terminal = conn.execute(
-        "SELECT COUNT(*) FROM jobs WHERE state IN ('SUCCEEDED', 'FAILED', 'REJECTED', 'DEAD_LETTER')"
-    ).fetchone()[0]
-print(f"terminal_runs={terminal}")
-print(Path("site/index.html").resolve())
-PY
-```
-
-`site/index.html` shows run IDs, metrics, and promotion status for the rendered experiment history. Promotion status is research evidence only; it is not a claim that any result is economically tradable.
-
-## Basic scaffold checks
-
-```bash
-python -c "import autoquant_lab.eqr"
-python scripts/eqr_validate_import.py
-python scripts/eqr_scan_secrets.py
-```
-
-## Architecture
+## Repository layout
 
 ```text
-                          configs/golden_path.yaml
-                                    |
-                                    v
-  ┌─────────────────────────────────────────────────────────────────────┐
-  │  Golden-path stage sequence                                         │
-  │                                                                     │
-  │  1. validate_raw_data ──> reports/eqr_raw_data_validation.json      │
-  │  2. build_links ─────────> experiments/prepared/links/              │
-  │  3. prepare_labels ──────> experiments/prepared/panel/              │
-  │  4. prepare_features ────> experiments/prepared/features/           │
-  │  5. validate_config ────> config hash check                        │
-  │  6. execute trials ──────> experiments/ledger.sqlite + runs/       │
-  │  7. render_site ────────> site/index.html + reports/               │
-  │  8. ci_smoke ────────────> reports/eqr_ci_report.json              │
-  └─────────────────────────────────────────────────────────────────────┘
-                                    |
-                                    v
-                    SQLite ledger finite-state machine
-              PROPOSED -> QUEUED -> CLAIMED -> RUNNING
-                -> EVALUATING -> PERSISTING -> RENDERING -> SUCCEEDED
-                                    |
-                                    v
-               experiments/runs/<run_id>/{metrics,predictions,model}
-                                    |
-                                    v
-                  reports/eqr_experiment_history.* + site/index.html
+configs/                     Safe YAML configs and ablation plans
+scripts/                     CLI entrypoints for preparation, validation, DDQM2 runs, and planning
+src/autoquant_lab/eqr/       Main EQR package code
+src/autoquant_lab/eqr/factors/DDQM2-style factor scoring, selection, allocation, and backtests
+tests/                       Focused tests for config, panel, factors, models, and reporting
+reports/                     Source-controlled final report only; generated local reports remain ignored
 ```
 
-### Data flow
+Runtime and private directories are ignored:
 
 ```text
-data/ (read-only)
-  ├── crsp_monthly.parquet ──┐
-  ├── compustat_fundq.parquet ┼──> eqr_validate_raw_data.py ──> validation report
-  ├── ibes_summary.parquet ───┤         |
-  └── macro_monthly.parquet ──┘         v
-                                  eqr_build_links.py ──> PIT link tables
-                                         |
-                                         v
-                               eqr_prepare_panel.py --stage labels ──> monthly_labels.parquet
-                                         |
-                                         v
-                               eqr_prepare_panel.py --stage features ──> feature family parquets
-                                         |
-                                         v
-                                  eqr_validate_config.py ──> config hash
-                                         |
-                                         v
-                            eqr_autoresearch.py golden-path (trials)
-                                         |
-                                         v
-                              experiments/ledger.sqlite + runs/<run_id>/
-                                         |
-                                         v
-                                  eqr_render_site.py ──> site/index.html
-                                         |
-                                         v
-                                  eqr_ci.py --smoke ──> CI report
+data/                        raw/local research data, including WRDS/FRED-style exports, never committed
+experiments/                 generated prepared panels and run artifacts
+site/                        generated static reports
+.env                         credentials/local settings
+*.pdf, *.xlsx                local reference/data files
 ```
 
-## Directory structure
+## What is intentionally not included
 
-| Path | Contents |
-|---|---|
-| `configs/` | Source-controlled experiment configs and report templates. |
-| `configs/golden_path.yaml` | Canonical config template with all allowed keys and defaults. |
-| `data/` | User-provided offline WRDS-style raw data; read-only for this workflow. |
-| `experiments/prepared/links/` | Generated point-in-time link evidence. |
-| `experiments/prepared/panel/` | Generated monthly panel and label artifacts. |
-| `experiments/prepared/features/` | Generated feature-family parquet files and metadata. |
-| `experiments/ledger.sqlite` | SQLite finite-state ledger for jobs, runs, artifacts, metrics, and events. |
-| `experiments/runs/<run_id>/` | Per-run metrics, predictions, model artifact, and config evidence. |
-| `reports/` | Generated JSON/Markdown validation, CI, and experiment history reports. |
-| `site/` | Generated static HTML experiment history. |
-| `skills/eqr-autoresearch/` | Agent-facing EQR autoresearch operating instructions. |
-| `src/autoquant_lab/eqr/` | Canonical package implementation. |
-| `scripts/eqr_*.py` | Thin offline command wrappers for the active EQR path. |
-| `tests/` | Pytest coverage for contracts, pipeline pieces, CLI wiring, ledger, and reporting. |
+This repository does **not** include:
 
-## CI
+- WRDS/CRSP/Compustat/IBES data
+- FRED/macro source exports or vendor macro files
+- `.env` files or credentials
+- private research notes such as `EQR.md`
+- DDQM/DDQM2 PDF references
+- generated parquet experiment artifacts
+- generated static site output
 
-Run the full local CI contract (pytest, validators, offline guard, secret scan):
+Those files are required only in the private local/server environment and are excluded by `.gitignore`.
+
+## Main CLI examples
+
+Render runnable DDQM2 ablation commands without executing them:
 
 ```bash
-python scripts/eqr_ci.py
+PYTHONPATH=src:. python scripts/eqr_plan_ddqm2_ablations.py --format commands --limit 8
 ```
 
-For a fast smoke check that skips expensive data scans:
+Run a DDQM2-style experiment from already-prepared local artifacts:
 
 ```bash
-python scripts/eqr_ci.py --smoke
-```
-
-The CI report is written to `reports/eqr_ci_report.json`.
-
-## Data policy
-
-Do not modify or regenerate files under `data/` as part of scaffold work. Existing local WRDS-style
-data is treated as user data and should only be read by path resolvers or metadata checks.
-
-The golden path is offline-only: no WRDS login prompts, no credential collection, no network downloads, and no external APIs during experiment execution. If FRED or yfinance data is used, fetch it outside the modeling run and place the resulting files under the local `data/` contract first. Any future online ingest utility must be opt-in, isolated from CI/server experiments, and guarded by an explicit flag such as `--allow-network`.
-
-Generated performance metrics are engineering smoke evidence for the research harness, not investment advice or a tradability claim.
-
-## DDQM2 factor-return run
-
-After preparing monthly labels and feature parquet files, run the factor-return track:
-
-```bash
-python scripts/eqr_run_ddqm2.py \
+PYTHONPATH=src:. python scripts/eqr_run_ddqm2.py \
   --config configs/server_full.yaml \
-  --panel experiments/prepared/panel/monthly_labels.parquet \
-  --feature-dir experiments/prepared/features \
-  --model lightgbm
+  --run-id example_usa_ddqm2_q20 \
+  --quantile 0.20 \
+  --model lightgbm \
+  --factor-universe selected_13_global_local \
+  --macro-feature-design ddqm2_25x3_us_macro \
+  --portfolio-surface stock_score_qspread_ddqm2 \
+  --min-weight 0.03
 ```
 
-The command builds stock-level EQR factor scores, converts them into 1-month factor long-short returns, trains one CPU model per factor from `macro__*` features, creates DDQM2 non-negative factor weights, backtests the realized factor portfolio, and writes `report.md`, parquet artifacts, and `manifest.json` under `experiments/ddqm2/<run-id>/`.
+Run focused tests:
 
-## Skill documentation
+```bash
+PYTHONPATH=src:. python -m pytest tests/test_ddqm2_ablation_plan.py tests/test_factors.py -q
+```
 
-Agent operators should read `skills/eqr-autoresearch/SKILL.md` before proposing new config-only experiments. The skill documents inspection order, allowed mutable paths, promotion gates, recovery steps, and the golden-path example command.
+## Research status
 
-## Legacy prototypes
+The current matrix completed:
 
-Old yfinance and DDQM2-lite prototype entrypoints are not part of the active EQR path. Historical
-prototype code, when retained for reference, is quarantined under `prototypes/legacy/` and should not
-be used by new CI, quickstarts, or command wrappers.
+- one smoke run on a capped panel, and
+- six full-data LightGBM walk-forward OOS runs across q=0.10, q=0.20, and q=0.30.
+
+Headline interpretation from the final report:
+
+- q=0.20 stock-score QSpread produced the highest cumulative return.
+- q=0.30 stock-score QSpread had the best mean/vol profile and lower turnover among the stock-score full runs.
+- q=0.10 remains the DDQM2-reference benchmark, not a forced default.
+
+These are gross research backtest outputs. They do not include transaction costs, borrow costs, slippage, market impact, capacity limits, or final tradability review.
+
+## Verification
+
+Recent focused checks used during the DDQM2-USA implementation:
+
+```text
+PYTHONPATH=src:. python -m pytest tests/test_ddqm2_ablation_plan.py tests/test_factors.py -q
+16 passed
+```
+
+The runner also uses chunked factor-score generation to avoid rematerializing very large score tables during full-data runs.
+
+## Safety and publication policy
+
+Before publishing, verify that no private data is tracked:
+
+```bash
+git ls-files data experiments site .env EQR.md '*.pdf' '*.xlsx'
+```
+
+The expected output should be empty except for explicitly safe placeholders, if any.
+
+## License / use
+
+This is a research scaffold. It is not investment advice and not a deployable trading strategy.
