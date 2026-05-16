@@ -9,7 +9,7 @@ You are working in `~/autoquant-lab` on the Oracle/main server. Continue autonom
 - Keep the public repo as code/docs scaffold; generated `data/`, `experiments/`, `reports/`, `site/` artifacts remain ignored unless explicitly asked.
 - Do not force `q=0.10`; keep it as the DDQM2-reference decile setting while preserving q=0.15/q=0.20/q=0.30 as U.S. adaptation ablations.
 - Do not claim faithful DDQM2 replication until stock-level QSpread, 13-factor selection, DDQM2-like macro design, and turnover/diagnostics are implemented and verified.
-- Do not commit or push unless explicitly asked.
+- Commit continuously after each stable, verified atomic unit. Keep commits small and logical; never commit private/generated data. Do not push unless explicitly asked.
 
 ## Current scaffold
 
@@ -84,4 +84,5 @@ Implement in phases, verifying after each phase:
 - CLI smoke passes for each new surface/axis.
 - Manual surface QA: run the planner and at least one smoke DDQM2 command using the new runnable axis.
 - Update `reports/eqr_harness_report.md` with what became runnable and what remains backlog.
+- Commit each stable implementation/test/doc unit after verification, using concise repository-style messages.
 - Summarize results in a concise final note in the tmux session/log.
