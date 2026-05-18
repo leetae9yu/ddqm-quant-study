@@ -212,6 +212,25 @@ Balanced practical candidate:
 usa_ddqm2_lightgbm_q030_selected13_ddqm2macro_stockscore
 ```
 
+### 7.4 다른 CPU-friendly 모델 비교
+
+같은 패널 계열에서 다른 CPU-friendly model도 함께 돌려서, DDQM2 구조가 LightGBM에만 의존하는지 확인했다. 아래 표는 1,000,000-row chunked run에서 q=0.10 기준의 대표 결과다.
+
+| Run | Model | q | Periods | Cum. Return | Max DD |
+|---|---|---:|---:|---:|---:|
+| `chunked_1000000_lightgbm_q10` | lightgbm | 0.10 | 197 | 178.9471 | -0.2281 |
+| `chunked_1000000_ridge_q10` | ridge | 0.10 | 197 | 130.4248 | -0.2206 |
+| `chunked_1000000_elasticnet_q10` | elasticnet | 0.10 | 197 | 130.4764 | -0.2423 |
+| `chunked_1000000_random_forest_q10` | random_forest | 0.10 | 197 | 76.6173 | -0.2528 |
+| `chunked_1000000_extra_trees_q10` | extra_trees | 0.10 | 197 | 64.2307 | -0.2498 |
+| `chunked_1000000_baseline_mean_q10` | baseline_mean | 0.10 | 197 | 22.7204 | -0.2683 |
+
+이 비교에서 보이는 핵심은 다음과 같다.
+
+- LightGBM이 가장 강한 대안이었지만, ridge/elasticnet도 상당히 경쟁력이 있었다.
+- tree ensemble(random forest, extra trees)는 baseline보다 낫지만 linear/boosting 계열보다는 약했다.
+- 즉, 이 프로젝트의 U.S. adaptation은 “무조건 LightGBM만 쓰는 구조”가 아니라, CPU-friendly model family 전반을 비교한 뒤 DDQM2-style surface에 맞는 모델을 고르는 구조로 유지하는 것이 적절하다.
+
 ## 8. 극단 tail 결과에 대한 처리
 
 초기 실험에서는 q=0.0025 같은 극단 tail bucket이 매우 큰 cumulative return을 보였다. 그러나 leg size가 작고, reversal 계열 factor가 중복되며, 일부 spike month에 성과가 집중되는 현상이 확인되었다. 따라서 해당 결과는 최종 headline이 아니라 diagnostic으로 분리했다.
