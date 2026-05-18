@@ -141,7 +141,7 @@ PYTHONPATH=src:. python -m pytest tests/test_ddqm2_ablation_plan.py tests/test_f
 The current matrix completed:
 
 - one smoke run on a capped panel, and
-- six full-data LightGBM walk-forward OOS runs across q=0.10, q=0.20, and q=0.30.
+- six full-panel LightGBM walk-forward OOS runs across q=0.10, q=0.20, and q=0.30 on the 1.25M date-balanced prepared panel.
 - CPU-friendly model sweeps covering LightGBM, ridge, elasticnet, random forest, extra trees, and baseline mean.
 
 Headline interpretation from the final report:
@@ -153,7 +153,7 @@ Headline interpretation from the final report:
 Model-sweep interpretation:
 
 - On the 1.0M q=0.10 chunked sweep, LightGBM had the highest cumulative return, while ridge and elasticnet were close second-tier candidates with competitive drawdowns.
-- On the 1.25M q=0.10 fixed-holdout family, ridge and elasticnet outperformed LightGBM on cumulative return, so they should remain core follow-up models rather than mere baselines.
+- On the 1.25M-row date-balanced prepared panel, ridge and elasticnet outperformed LightGBM on cumulative return in the q=0.10 fixed-holdout family, so they should remain core follow-up models rather than mere baselines.
 - Random forest and extra trees improved on the baseline mean model but were weaker than LightGBM/ridge/elasticnet in the available sweeps.
 - The final headline matrix still uses the selected13 stock-score LightGBM setup because the model sweep used a different broader factor-return surface and evaluation setup.
 

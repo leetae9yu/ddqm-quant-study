@@ -6,7 +6,7 @@
 
 본 프로젝트는 삼성증권 DDQM/DDQM2의 핵심 아이디어를 미국 주식시장 데이터에 맞게 이식하기 위한 오프라인 자동실험 하네스 구축 및 초기 실험 결과를 정리한 것이다. 원문의 핵심 구조인 “macro/market variable을 이용한 factor return forecast → dynamic factor allocation → long-short/QSpread 평가”를 유지하되, CRSP/Compustat/IBES/FRED-style 로컬 데이터를 사용하는 U.S. equity adaptation으로 재구성했다. 실험은 CPU-only 환경에서 실행되도록 설계했으며, raw data, credentials, local notes, generated artifacts는 GitHub 공개 대상에서 제외했다.
 
-최종 구현은 selected 13-factor universe, DDQM2-style U.S. macro feature design, CPU-friendly factor-return forecasting, stock-level weighted factor score QSpread, expanding walk-forward OOS evaluation, ablation planner를 포함한다. 1,250,000개 월별 패널 row와 383개월 OOS 구간에서 q=0.10, q=0.20, q=0.30에 대한 LightGBM 중심 matrix를 수행했고, 별도 chunked sweep으로 ridge, elasticnet, random forest, extra trees, baseline mean도 비교했다. q=0.20 stock-score QSpread는 가장 높은 cumulative return을 보였고, q=0.30 stock-score QSpread는 mean/vol, turnover, drawdown 측면에서 더 균형 잡힌 후보로 해석되었다. 모델 비교에서는 LightGBM이 1.0M q=0.10 sweep에서 가장 높았지만, ridge/elasticnet도 강한 후보였고 1.25M fixed-holdout 계열에서는 ridge/elasticnet이 LightGBM보다 높은 누적 성과를 보인 구간도 있었다. 다만 모든 결과는 gross research backtest이며 transaction cost, liquidity, borrow, market impact, capacity 검증은 아직 반영되지 않았다.
+최종 구현은 selected 13-factor universe, DDQM2-style U.S. macro feature design, CPU-friendly factor-return forecasting, stock-level weighted factor score QSpread, expanding walk-forward OOS evaluation, ablation planner를 포함한다. 1,250,000개는 raw 전체 데이터가 아니라 date-balanced로 cap된 prepared panel row이며, 그 패널과 383개월 OOS 구간에서 q=0.10, q=0.20, q=0.30에 대한 LightGBM 중심 matrix를 수행했고, 별도 chunked sweep으로 ridge, elasticnet, random forest, extra trees, baseline mean도 비교했다. q=0.20 stock-score QSpread는 가장 높은 cumulative return을 보였고, q=0.30 stock-score QSpread는 mean/vol, turnover, drawdown 측면에서 더 균형 잡힌 후보로 해석되었다. 모델 비교에서는 LightGBM이 1.0M q=0.10 sweep에서 가장 높았지만, ridge/elasticnet도 강한 후보였고 1.25M fixed-holdout 계열에서는 ridge/elasticnet이 LightGBM보다 높은 누적 성과를 보인 구간도 있었다. 다만 모든 결과는 gross research backtest이며 transaction cost, liquidity, borrow, market impact, capacity 검증은 아직 반영되지 않았다.
 
 ## 1. 연구 배경과 문제 정의
 
@@ -166,7 +166,7 @@ DDQM2에 더 가까운 U.S. adaptation을 위해 다음 축을 구현했다.
 
 - Model: LightGBM
 - Evaluation: expanding walk-forward OOS
-- Full-run panel rows: 1,250,000
+- Prepared panel rows: 1,250,000 (date-balanced cap, not full raw universe)
 - OOS periods: 383
 - Factor universe: selected 13 global/local factors
 - Factor score rows per full run: 52,261,398
@@ -227,7 +227,7 @@ usa_ddqm2_lightgbm_q030_selected13_ddqm2macro_stockscore
 | `chunked_1000000_extra_trees_q10` | extra_trees | 0.10 | 197 | 64.2307 | -0.2498 |
 | `chunked_1000000_baseline_mean_q10` | baseline_mean | 0.10 | 197 | 22.7204 | -0.2683 |
 
-동일 q=0.10을 1,250,000-row fixed-holdout 계열로 확장했을 때는 순위가 달라졌다.
+동일 q=0.10을 1,250,000-row date-balanced prepared panel의 fixed-holdout 계열로 확장했을 때는 순위가 달라졌다.
 
 | Run | Model | q | Periods | Cum. Return | Max DD |
 |---|---|---:|---:|---:|---:|
@@ -244,7 +244,7 @@ usa_ddqm2_lightgbm_q030_selected13_ddqm2macro_stockscore
 - elasticnet은 ridge와 거의 같은 계열의 결과를 냈다. L1/L2 regularization을 함께 쓰기 때문에 feature selection 성격이 일부 들어가지만, 현재 결과만으로 ridge 대비 명확한 우위가 있다고 보기는 어렵다.
 - random forest와 extra trees는 baseline mean보다 낫지만 LightGBM/ridge/elasticnet보다는 약했다. 월별 macro feature와 factor-return label의 표본 수가 제한된 상황에서는 high-variance tree ensemble이 안정적으로 우위를 확보하지 못한 것으로 해석할 수 있다.
 - baseline mean도 완전히 무의미하지는 않다. 단순 평균 예측만으로도 양의 결과가 나온다는 점은 factor-return label 자체에 persistent component가 있음을 시사한다. 그러나 모델 기반 접근 대비 성과와 drawdown이 모두 약했다.
-- 1.25M fixed-holdout 계열에서 ridge/elasticnet이 LightGBM보다 크게 높게 나온 것은 중요한 신호지만, 이 결과를 최종 headline으로 올리지는 않았다. 해당 sweep은 최종 selected13/stock-score/walk-forward matrix와 surface 및 평가 protocol이 다르기 때문이다.
+- 1.25M-row date-balanced prepared panel의 fixed-holdout 계열에서 ridge/elasticnet이 LightGBM보다 크게 높게 나온 것은 중요한 신호지만, 이 결과를 최종 headline으로 올리지는 않았다. 해당 sweep은 최종 selected13/stock-score/walk-forward matrix와 surface 및 평가 protocol이 다르기 때문이다.
 
 따라서 현재 결론은 “LightGBM만 답”이 아니라 다음에 가깝다.
 

@@ -141,7 +141,7 @@ PYTHONPATH=src:. python -m pytest tests/test_ddqm2_ablation_plan.py tests/test_f
 현재 matrix는 다음을 완료했습니다.
 
 - capped panel smoke run 1개
-- q=0.10, q=0.20, q=0.30에 대한 full-data LightGBM walk-forward OOS run 6개
+- q=0.10, q=0.20, q=0.30에 대한 1.25M-row date-balanced prepared panel 기반 LightGBM walk-forward OOS run 6개
 - LightGBM, ridge, elasticnet, random forest, extra trees, baseline mean 등 CPU-friendly model 비교
 
 최종 report의 headline 해석은 다음과 같습니다.
@@ -153,7 +153,7 @@ PYTHONPATH=src:. python -m pytest tests/test_ddqm2_ablation_plan.py tests/test_f
 모델 sweep 해석은 다음과 같습니다.
 
 - 1.0M q=0.10 chunked sweep에서는 LightGBM이 가장 높은 cumulative return을 보였고, ridge와 elasticnet은 drawdown도 경쟁력 있는 2위권 후보였습니다.
-- 1.25M q=0.10 fixed-holdout 계열에서는 ridge와 elasticnet이 cumulative return 기준으로 LightGBM보다 높게 나왔기 때문에, 단순 baseline이 아니라 후속 핵심 비교 모델로 남겨야 합니다.
+- 1.25M-row date-balanced prepared panel의 q=0.10 fixed-holdout 계열에서는 ridge와 elasticnet이 cumulative return 기준으로 LightGBM보다 높게 나왔기 때문에, 단순 baseline이 아니라 후속 핵심 비교 모델로 남겨야 합니다.
 - random forest와 extra trees는 baseline mean보다 낫지만, 현재 sweep에서는 LightGBM/ridge/elasticnet보다 약했습니다.
 - 최종 headline matrix는 여전히 selected13 stock-score LightGBM setup을 기준으로 둡니다. 모델 sweep은 더 넓은 factor-return surface와 다른 평가 설정에서 수행한 robustness/diagnostic evidence이기 때문입니다.
 
