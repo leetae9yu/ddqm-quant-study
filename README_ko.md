@@ -1,5 +1,7 @@
 # autoquant-lab
 
+[English](README.md)
+
 `autoquant-lab`는 DDQM2 아이디어를 미국 주식시장에 맞게 이식하기 위한 오프라인 리서치 하네스입니다. 로컬 연구 데이터에서 point-in-time 월별 주식 패널을 만들고, macro/market feature로 factor long-short return을 예측한 뒤, 예측값을 동적 factor allocation으로 바꿔 walk-forward OOS 포트폴리오를 평가합니다.
 
 이 저장소는 **코드와 문서 스캐폴드만** 공개합니다. Raw WRDS-style dataset, credential, private research note, generated experiment artifact, vendor/reference PDF는 의도적으로 제외합니다.
